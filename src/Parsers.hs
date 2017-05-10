@@ -6,7 +6,7 @@ module Parsers
 ( parse_spectrum
 , parse_filename
 ) where
-import qualified Data.Text as Text
+--import qualified Data.Text as Text
 import Data.Attoparsec.Text
 
 

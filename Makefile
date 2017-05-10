@@ -1,6 +1,6 @@
 PREFIX              = ~/.local/bin
 HC                  = ghc
-HFLAGS              = -W
+HFLAGS              = -W -O2
 
 all: hoptics
 
