@@ -1,10 +1,8 @@
 module Optics where
 
 import Numeric.GSL
---import Data.Complex
 
--- speed of light
-c = 299792458.0e0 :: Double
+c = 299792458.0e0 :: Double             -- speed of light
 
 -- wavelength on x to frequency on x, assuming meter as input
 wavelength2frequency :: [(Double,Double)] -> [(Double,Double)]
@@ -12,6 +10,7 @@ wavelength2frequency spectrum = map conversion spectrum
     where
         conversion (lambda,y) = (c/lambda,y)
 
+-- wavelength to wavenumber        
 wavelength2wavenumber :: [(Double,Double)] -> [(Double,Double)]
 wavelength2wavenumber spectrum = map conversion spectrum
     where
@@ -23,21 +22,25 @@ wavenumber2frequency spectrum = map conversion spectrum
     where
         conversion (nu,y) = (nu*c,y)
 
+-- wavenumber to wavelength
 wavenumber2wavelength :: [(Double,Double)] -> [(Double,Double)]
 wavenumber2wavelength spectrum = map conversion spectrum
     where
         conversion (nu,y) = (1.0 / nu,y)
 
+-- frequency to wavenumber
 frequency2wavenumber :: [(Double,Double)] -> [(Double,Double)]
 frequency2wavenumber spectrum = map conversion spectrum
     where
         conversion (freq,y) = (freq / c,y)
 
+-- frequency to wavelength
 frequency2wavelength :: [(Double,Double)] -> [(Double,Double)]
 frequency2wavelength spectrum = map conversion spectrum
     where
         conversion (freq,y) = (c / freq,y)
 
+-- real part of the index of refraction and imaginary part combined to complex index of refraction
 nkSep2complexIndOfRef :: [(Double,Double)] -> [(Double,Double)] -> [(Double,Complex Double)]
 nkSep2complexIndOfRef n0_spectrum k_spectrum = zip xVals indOfRef
     where
@@ -46,6 +49,7 @@ nkSep2complexIndOfRef n0_spectrum k_spectrum = zip xVals indOfRef
         kVals = [evaluate Akima k_spectrum points | points <- xVals]
         indOfRef = zipWith (:+) nVals kVals
 
+-- convert index of refraction to dielectric permittivity
 n2epsilon :: Double -> [(Double,Complex Double)] -> [(Double,Complex Double)]
 n2epsilon magnetic_permittivity n_spectrum = zip xVals epsilonVals
     where
@@ -54,6 +58,7 @@ n2epsilon magnetic_permittivity n_spectrum = zip xVals epsilonVals
         n_length = length n_spectrum
         epsilonVals = [((nVals !! ind)^2) `commul` (1 / magnetic_permittivity) | ind <- [0 .. (n_length - 1)]]
 
+-- convert dielectric permittivity to index of refraction
 epsilon2n :: Double -> [(Double,Complex Double)] -> [(Double,Complex Double)]
 epsilon2n magnetic_permittivity epsilon_spectrum = zip xVals nVals
     where
@@ -87,12 +92,18 @@ indOfRef_n int_method (low_limit,high_limit) n_seed safety_distance alpha_spectr
         --alpha_integral (low_limit,high_limit) nu_indOfRef alpha_spectrum = evaluateIntegral Akima alpha_quotient_spectrum (low_limit,high_limit)
         alpha_integral (low_limit,high_limit) nu_indOfRef alpha_spectrum = low_integral + high_integral        
             where
+                -- the quotients, that are finally integrated are generated separately for every
+                -- wavenumber that is concerned. this is done for values left and right of the pole
+                -- separately where the values discarded because of the security distance are
+                -- already ommitted.
                 alpha_quotient_spectrum_low = alpha_quotients_low nu_indOfRef alpha_spectrum
                 alpha_quotient_spectrum_high = alpha_quotients_high nu_indOfRef alpha_spectrum
                 
+                -- use GSL routine to integrate
                 low_integral = evaluateIntegral int_method alpha_quotient_spectrum_low (low_low_limit,low_high_limit)
                 high_integral = evaluateIntegral int_method alpha_quotient_spectrum_high (high_low_limit,high_high_limit)
                 
+                -- limits for the integration (one value more than the limits allow by thereself)
                 low_low_limit = last $ filter (< low_limit) $ map fst alpha_quotient_spectrum_low
                 low_high_limit = fst $ last alpha_quotient_spectrum_low
                 high_low_limit = fst $ head alpha_quotient_spectrum_high
