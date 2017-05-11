@@ -87,10 +87,17 @@ indOfRef_n int_method (low_limit,high_limit) n_seed safety_distance alpha_spectr
         --alpha_integral (low_limit,high_limit) nu_indOfRef alpha_spectrum = evaluateIntegral Akima alpha_quotient_spectrum (low_limit,high_limit)
         alpha_integral (low_limit,high_limit) nu_indOfRef alpha_spectrum = low_integral + high_integral        
             where
-                alpha_quotient_spectrum = alpha_quotients nu_indOfRef alpha_spectrum
+                alpha_quotient_spectrum_low = alpha_quotients_low nu_indOfRef alpha_spectrum
+                alpha_quotient_spectrum_high = alpha_quotients_high nu_indOfRef alpha_spectrum
                 
-                low_integral = evaluateIntegral int_method alpha_quotient_spectrum (low_limit,nu_indOfRef - 0.0)
-                high_integral = evaluateIntegral int_method alpha_quotient_spectrum (nu_indOfRef + 0.0,high_limit)
+                low_integral = evaluateIntegral int_method alpha_quotient_spectrum_low (low_low_limit,low_high_limit)
+                high_integral = evaluateIntegral int_method alpha_quotient_spectrum_high (high_low_limit,high_high_limit)
+                
+                low_low_limit = last $ filter (< low_limit) $ map fst alpha_quotient_spectrum_low
+                low_high_limit = fst $ last alpha_quotient_spectrum_low
+                high_low_limit = fst $ head alpha_quotient_spectrum_high
+                high_high_limit = head $ filter (> high_limit) $ map fst alpha_quotient_spectrum_high
+                
                 
                 -- for a specific wavenumber generate the series of points, that need to 
                 -- be integrated. This gives the term
@@ -99,9 +106,14 @@ indOfRef_n int_method (low_limit,high_limit) n_seed safety_distance alpha_spectr
                 --
                 -- as a series the full spectral range of the alpha spectrum (nu') at the specific
                 -- wavenumber nu
-                alpha_quotients :: Double -> [(Double,Double)] -> [(Double,Double)]
+                alpha_quotients_low :: Double -> [(Double,Double)] -> [(Double,Double)]
                 --alpha_quotients nu_indOfRef alpha_spectrum = [a | a <- alpha_quotients_raw, (snd a) <= 10.0]
-                alpha_quotients nu_indOfRef alpha_spectrum = [a | a <- alpha_quotients_raw, (fst a) <= (nu_indOfRef - safety_distance)] ++ [a | a <- alpha_quotients_raw, (fst a) >= (nu_indOfRef + safety_distance)]
+                alpha_quotients_low nu_indOfRef alpha_spectrum = [a | a <- alpha_quotients_raw, (fst a) <= (nu_indOfRef - safety_distance), (snd a) <= 10.0] 
+                    where
+                        alpha_quotients_raw = map get_quotient alpha_spectrum
+                        get_quotient (nu,alpha) = (nu,alpha / (nu**2.0 - nu_indOfRef**2.0))
+                alpha_quotients_high :: Double -> [(Double,Double)] -> [(Double,Double)]
+                alpha_quotients_high nu_indOfRef alpha_spectrum = [a | a <- alpha_quotients_raw, (fst a) >= (nu_indOfRef + safety_distance), (snd a) <= 10.0]
                     where
                         alpha_quotients_raw = map get_quotient alpha_spectrum
                         get_quotient (nu,alpha) = (nu,alpha / (nu**2.0 - nu_indOfRef**2.0))

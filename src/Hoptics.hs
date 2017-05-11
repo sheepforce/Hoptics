@@ -251,6 +251,8 @@ spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unit
              case integration_method_raw of
                   "Naive" -> do
                       let integration_method = Main.Naive
+                      let security_distance = 0.0
+                      putStrLn "security distance does not apply to this method"
                       spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unitOnX integration_method
                   "Linear" -> do
                       let integration_method = Main.Linear
