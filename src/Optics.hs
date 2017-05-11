@@ -77,8 +77,8 @@ indOfRef_k alpha_spectrum = map get_k alpha_spectrum
 
 -- calculate the real part of the index of refraction by Kramers Kronig relation from
 -- the alpha spectra. Needs a seed value
-indOfRef_n :: (Double,Double) -> Double -> Double -> [(Double,Double)] -> [(Double,Double)]
-indOfRef_n (low_limit,high_limit) n_seed safety_distance alpha_spectrum = [(nu_indOfRef, n_seed + 1.0 / (2.0 * pi**2.0) * (alpha_integral (low_limit,high_limit) nu_indOfRef alpha_spectrum)) 
+indOfRef_n :: InterpolationMethod -> (Double,Double) -> Double -> Double -> [(Double,Double)] -> [(Double,Double)]
+indOfRef_n int_method (low_limit,high_limit) n_seed safety_distance alpha_spectrum = [(nu_indOfRef, n_seed + 1.0 / (2.0 * pi**2.0) * (alpha_integral (low_limit,high_limit) nu_indOfRef alpha_spectrum)) 
                                                           | nu_indOfRef <- (map fst alpha_spectrum), nu_indOfRef >= low_limit, nu_indOfRef <= high_limit ]
     where
         -- integrate the quotient term for a specific index of refraction with the corresponding
@@ -89,8 +89,8 @@ indOfRef_n (low_limit,high_limit) n_seed safety_distance alpha_spectrum = [(nu_i
             where
                 alpha_quotient_spectrum = alpha_quotients nu_indOfRef alpha_spectrum
                 
-                low_integral = evaluateIntegral Akima alpha_quotient_spectrum (low_limit,nu_indOfRef - 0.0)
-                high_integral = evaluateIntegral Akima alpha_quotient_spectrum (nu_indOfRef + 0.0,high_limit)
+                low_integral = evaluateIntegral int_method alpha_quotient_spectrum (low_limit,nu_indOfRef - 0.0)
+                high_integral = evaluateIntegral int_method alpha_quotient_spectrum (nu_indOfRef + 0.0,high_limit)
                 
                 -- for a specific wavenumber generate the series of points, that need to 
                 -- be integrated. This gives the term

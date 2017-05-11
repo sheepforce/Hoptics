@@ -29,6 +29,7 @@ nu' -> integration variable
 import qualified Data.Text.IO as TextIO
 import qualified Data.Text as Text
 import Data.Complex
+import Numeric.GSL
 import Data.Either
 import Text.Read
 import Data.Attoparsec.Text
@@ -47,6 +48,8 @@ x2meter = 1.0e-9      -- conversion factor from wavelength as in spectrum to wav
 x2invmeter = 1.0e2    -- conversion for x as wavenumber inverse meter
 
 data XData = Wavenumber | Wavelength deriving (Show,Eq)
+
+data IntegrationMethod = Naive | Linear | Polynomial | CSpline | Akima deriving (Show,Eq)
 
 main = do
     putStrLn "         ********************"
@@ -71,6 +74,7 @@ mainMenu = do
            else do
                return $ head spectrum_path_raw
     unitOnX <- return Wavenumber
+    integration_method <- return Main.Akima
     -- mixingMenu
     spectrum1_prefix <- do
         if ((length spectrum_path_raw) < 1)
@@ -98,15 +102,15 @@ mainMenu = do
     main_menu_input <- getLine
     case main_menu_input of
          "1" -> do
-             spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unitOnX
+             spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unitOnX integration_method
          "2" -> do
              mixingMenu spectrum1_prefix spectrum2_prefix volume_fraction magnetic_permittivity
          _   -> do
              putStrLn "enter correct number"
              mainMenu
 
-spectrumMenu :: String -> Double -> (Double,Double) -> Double -> Double -> XData -> IO ()
-spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unitOnX = do
+spectrumMenu :: String -> Double -> (Double,Double) -> Double -> Double -> XData -> IntegrationMethod -> IO ()
+spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unitOnX integration_method = do
     putStrLn ""
     putStrLn "Hoptics"
     putStrLn "∟ Main Menu"
@@ -120,6 +124,7 @@ spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unit
     putStrLn $ "(4)  security distance around poles and boundaries     " ++ (show security_distance)
     putStrLn $ "(5)  seed value for real part of index of refraction   " ++ (show n_seed)
     putStrLn $ "(6)  dimension on x axis                               " ++ (show unitOnX)
+    putStrLn $ "(7)  integration method for Kramers Kronig             " ++ (show integration_method)
     
     -- read in user selection for menu and apply changes or do the computation
     spectrumMenu_input <- getLine
@@ -131,7 +136,7 @@ spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unit
              case spectrum_raw_content of
                   Left exception -> do
                       putStrLn ("can't open file " ++ (show exception))
-                      spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unitOnX
+                      spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unitOnX integration_method
                   Right spectrum_raw_content -> do
                       let spectrum_xUnkwn = fromRight $ parseOnly parse_spectrum spectrum_raw_content
                       trans_spectrum_unordered <- if (unitOnX == Wavelength)
@@ -144,13 +149,18 @@ spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unit
                       let trans_spectrum = order_spectrum trans_spectrum_unordered
                           alpha_spectrum = absorption_coeff (thickness * 1.0e-9) trans_spectrum
                           k_spectrum = indOfRef_k alpha_spectrum
-                          n0_spectrum = indOfRef_n spectralRange n_seed security_distance alpha_spectrum
+                          n0_spectrum
+                              | integration_method == Naive = indOfRef_n' spectralRange n_seed security_distance alpha_spectrum
+                              | integration_method == Main.Linear = indOfRef_n Numeric.GSL.Linear spectralRange n_seed security_distance alpha_spectrum
+                              | integration_method == Main.Polynomial = indOfRef_n Numeric.GSL.Polynomial spectralRange n_seed security_distance alpha_spectrum
+                              | integration_method == Main.CSpline = indOfRef_n Numeric.GSL.CSpline spectralRange n_seed security_distance alpha_spectrum
+                              | integration_method == Main.Akima = indOfRef_n Numeric.GSL.Akima spectralRange n_seed security_distance alpha_spectrum
+                              | otherwise = indOfRef_n Numeric.GSL.Akima spectralRange n_seed security_distance alpha_spectrum
                       
                       putStrLn "\ncalculating index of refraction... (can take some time)"  
                       
                       let spectrum_name = fromRight $ parseOnly parse_filename (Text.pack spectrum_path)
                           spectrum_basename = fst spectrum_name
-                      
                       
                       trans_handle <- openFile (spectrum_basename ++ "_trans.dat") WriteMode
                       alpha_handle <- openFile (spectrum_basename ++ "_alpha.dat") WriteMode
@@ -173,7 +183,7 @@ spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unit
              putStrLn ""
              putStrLn "enter file name of the spectrum"
              spectrum_path <- getLine
-             spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unitOnX
+             spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unitOnX integration_method
          "2" -> do
              putStrLn ""
              putStrLn "enter thickness of the sample [nm]"
@@ -181,10 +191,10 @@ spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unit
              case ((readMaybe :: String -> Maybe Double) thickness_raw) of
                   Just x -> do
                       let thickness = x
-                      spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unitOnX 
+                      spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unitOnX integration_method 
                   Nothing -> do
                       putStrLn "can not read this number, try again"
-                      spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unitOnX
+                      spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unitOnX integration_method
          "3" -> do
              putStrLn ""
              putStrLn "spectral range for the computation (low,high)"
@@ -192,10 +202,10 @@ spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unit
              case ((readMaybe :: String -> Maybe (Double,Double)) spectralRange_raw) of
                   Just x -> do
                       let spectralRange = x
-                      spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unitOnX 
+                      spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unitOnX integration_method 
                   Nothing -> do
                       putStrLn "can not read this numbers, try again"
-                      spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unitOnX 
+                      spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unitOnX integration_method 
          "4" -> do
              putStrLn ""
              putStrLn "security distance around poles and boundaries in the dimension on x"
@@ -203,10 +213,10 @@ spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unit
              case ((readMaybe :: String -> Maybe Double) security_distance_raw) of
                   Just x -> do
                       let security_distance = x
-                      spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unitOnX
+                      spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unitOnX integration_method
                   Nothing -> do
                       putStrLn "can not read this number, try again"
-                      spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unitOnX 
+                      spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unitOnX integration_method 
          "5" -> do
             putStrLn ""
             putStrLn "seed value fro the index of refraction"
@@ -214,10 +224,10 @@ spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unit
             case ((readMaybe :: String -> Maybe Double) n_seed_raw) of
                  Just x -> do
                      let n_seed = x
-                     spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unitOnX
+                     spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unitOnX integration_method
                  Nothing -> do
                      putStrLn "can not read this number, try again"
-                     spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unitOnX
+                     spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unitOnX integration_method
          "6" -> do
              putStrLn ""
              putStrLn "wavenumber [cm⁻¹] (wn) or wavelength [nm] (wl) on x axis?"
@@ -225,15 +235,42 @@ spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unit
              case unitOnX_raw of
                   "wl" -> do
                       let unitOnX = Wavelength
-                      spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unitOnX
+                      spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unitOnX integration_method
                   "wn" -> do
                       let unitOnX = Wavenumber
-                      spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unitOnX
+                      spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unitOnX integration_method
                   _ -> do
                       let unitOnX = Wavenumber
-                      spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unitOnX
+                      spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unitOnX integration_method
+         "7" -> do
+             putStrLn ""
+             putStrLn "integration method for real part"
+             putStrLn "Naive | Linear | Polynomial | CSpline | Akima"
+             putStrLn "Naive recommended for UVVis, Akima otherwise"
+             integration_method_raw <- getLine
+             case integration_method_raw of
+                  "Naive" -> do
+                      let integration_method = Main.Naive
+                      spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unitOnX integration_method
+                  "Linear" -> do
+                      let integration_method = Main.Linear
+                      spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unitOnX integration_method
+                  "Polynomial" -> do
+                      let integration_method = Main.Polynomial
+                      spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unitOnX integration_method
+                  "CSpline" -> do
+                      let integration_method = Main.CSpline
+                      spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unitOnX integration_method
+                  "Akima" -> do
+                      let integration_method = Main.Akima
+                      spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unitOnX integration_method
+                  _ -> do
+                      putStrLn "not a valid choice, try again"
+                      spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unitOnX integration_method
+                      
+                  
          _ -> do
-             spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unitOnX
+             spectrumMenu spectrum_path thickness spectralRange security_distance n_seed unitOnX integration_method
 
 
 mixingMenu :: String -> String -> Double -> Double -> IO ()
@@ -267,12 +304,6 @@ mixingMenu spectrum1_prefix spectrum2_prefix volume_fraction magnetic_permittivi
              if (isLeft spectrum1_n0_raw || isLeft spectrum2_n0_raw || isLeft spectrum1_k_raw || isLeft spectrum2_k_raw) 
                 then do
                     putStrLn ("can't open some files, look at the errors and try again")
-                    {-
-                    print (fromLeft spectrum1_n0_raw)
-                    print (fromLeft spectrum2_n0_raw)
-                    print (fromLeft spectrum1_k_raw)
-                    print (fromLeft spectrum2_k_raw)
-                    -}
                     if (isLeft spectrum1_n0_raw)
                        then do
                            print (fromLeft spectrum1_n0_raw)
@@ -358,13 +389,7 @@ mixingMenu spectrum1_prefix spectrum2_prefix volume_fraction magnetic_permittivi
          _ -> do
              mixingMenu spectrum1_prefix spectrum2_prefix volume_fraction magnetic_permittivity
          
-             
-             
-             
-             
-    
-    
-    
+
 scaleX :: (Num a) => a -> (a,a) -> (a,a)
 scaleX a (x,y) = (a*x,y)
 
