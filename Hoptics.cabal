@@ -1,0 +1,25 @@
+Name:		Hoptics
+Version:	0.1
+Cabal-Version:  >= 1.2
+License:	GPL-3
+License-File:	LICENSE
+Author:		Phillip Seeber
+Homepage:	https://github.com/sheepforce/Hoptics
+Category:	Optics
+Synopsis:	Calculation of optical data from thin film spectra
+Build-Type:     Simple
+
+Executable hoptics
+  Build-Depends:
+    base,
+    attoparsec,
+    hmatrix,
+    hmatrix-gsl,
+    text,
+    either-unwrap
+  Main-Is:
+    Hoptics.hs
+  hs-source-dirs:
+    src
+  ghc-options:
+    -W -O2

@@ -9,6 +9,7 @@ hoptics:
 
 clean:
 	cd src && rm -f *.hi *.o Hoptics
+	rm -rf dist
 
 install:
 	cd src && cp Hoptics $(PREFIX)/hoptics
