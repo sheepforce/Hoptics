@@ -10,6 +10,9 @@ Synopsis:	Calculation of optical data from thin film spectra
 Build-Type:     Simple
 
 Executable hoptics
+  Other-Modules:
+    Optics
+    Parsers
   Build-Depends:
     base,
     attoparsec,

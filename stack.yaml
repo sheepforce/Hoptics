@@ -1,0 +1,4 @@
+packages:
+- location: .
+
+resolver: lts-9.14

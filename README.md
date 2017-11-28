@@ -1,16 +1,23 @@
 # HOptics -- *calculation of optical data from thin film spectra*
-## Build 
-Hoptics is built and installed by a Makefile and typing
+## Build
+Hoptics is built and installed by Stack
 
-> make all && make install
+		git clone https://github.com/sheepforce/Hoptics.git
+		cd Hoptics
+		stack setup
+		stack install
+
 
 ### Dependencies
 In order to build Hoptics you will need the Glasgow Haskell Compiler `ghc`, the GNU Scientific Library, BLAS and some Haskell packages. They can be installed by
 
 	aptitude install libgsl-dev libopenblas-dev ghc cabal-install
 	cabal install text hmatrix hmatrix-gsl either-unwrap attoparsec
+
+
 ## Usage
 HOptics can be used to calculate the index of refraction from thin film transmission spectra or to get an averaged index of refraction for inclusion/matrix system, where the two components has been measured separately. Thin film spectra have to be a two column ascii file with whitespace as column separators.
+
 
 ### Index of Refraction
 For calculating the real and imaginary part of the index of refraction call hoptics with the transmission-spectrum as the argument `hoptics /path/to/spectrum.dat`. You will see the main menu.
@@ -20,7 +27,7 @@ For calculating the real and imaginary part of the index of refraction call hopt
 
 	(1)  derive index of refraction from spectrum
 	(2)  mix two sets of indices of refraction
-	
+
 press `1` to get to the menu for analysing the spectra. You will see the current settings for calculation, which can be changed by entering the corresponding number an [enter].
 
 	HOptics
@@ -30,9 +37,9 @@ press `1` to get to the menu for analysing the spectra. You will see the current
 	(-1) return to main menu
 	(0)  start computation
 	(1)  path to spectrum                                  "spectrum.dat"
-	(2)  thickness of the sample [nm]                      100.0 
+	(2)  thickness of the sample [nm]                      100.0
 	(3)  spectral range for the calculation                (45000.0,590000.0)
-	(4)  security distance around poles and boundaries     500.0 
+	(4)  security distance around poles and boundaries     500.0
 	(5)  seed value for real part of index of refraction   1.0
 	(6)  dimension on x axis                               Wavenumber
 	(7)  integration method for Kramers Kronig             Akima
@@ -53,7 +60,7 @@ From the main menu press `2` to enter the menu for getting the index of refracti
 	Hoptics
 	∟ Main Menu
 	  ∟ mix spectra
-	
+
 	(-1) return to main menu
 	(0)  start computation
 	(1)  prefix of spectrum of component 1 (inclusion)       "spectrum1"
